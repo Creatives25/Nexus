@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - role: string (required, ['student', 'teacher', 'parent', 'school_admin'])
+    //   - country: string (optional)
+    //   - photoURL: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: tutors
+    // Fields:
+    //   - userId: string (required)
+    //   - subjects: list (required)
+    //   - hourlyRate: number (required)
+    //   - experience: string (optional)
+    //   - bio: string (optional)
+    //   - rating: number (optional)
+    //   - reviewCount: number (optional)
+    //
+    // Collection: classes
+    // Fields:
+    //   - tutorId: string (required)
+    //   - subject: string (required)
+    //   - scheduledTime: timestamp (required)
+    //   - duration: number (required)
+    //   - videoSessionLink: string (optional)
+    //   - status: string (required, ['scheduled', 'completed', 'cancelled'])
+    //
+    // Collection: bookings
+    // Fields:
+    //   - studentId: string (required)
+    //   - tutorId: string (required)
+    //   - classId: string (required)
+    //   - paymentStatus: string (required, ['pending', 'paid', 'refunded'])
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: assignments
+    // Fields:
+    //   - classId: string (required)
+    //   - studentId: string (required)
+    //   - title: string (required)
+    //   - description: string (optional)
+    //   - submissionFile: string (optional)
+    //   - grade: string (optional)
+    //   - feedback: string (optional)
+    //   - dueDate: timestamp (optional)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'school_admin' ||
+         (request.auth.token.email == "pneumasleuth@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role', 'createdAt']) &&
+             data.uid is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string &&
+             data.role in ['student', 'teacher', 'parent', 'school_admin'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidTutor(data) {
+      return data.keys().hasAll(['userId', 'subjects', 'hourlyRate']) &&
+             data.userId is string &&
+             data.subjects is list &&
+             data.hourlyRate is number && data.hourlyRate >= 0;
+    }
+
+    function isValidClass(data) {
+      return data.keys().hasAll(['tutorId', 'subject', 'scheduledTime', 'duration', 'status']) &&
+             data.tutorId is string &&
+             data.subject is string &&
+             data.scheduledTime is timestamp &&
+             data.duration is number &&
+             data.status in ['scheduled', 'completed', 'cancelled'];
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['studentId', 'tutorId', 'classId', 'paymentStatus', 'createdAt']) &&
+             data.studentId is string &&
+             data.tutorId is string &&
+             data.classId is string &&
+             data.paymentStatus in ['pending', 'paid', 'refunded'] &&
+             data.createdAt is timestamp;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /tutors/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && isValidTutor(request.resource.data);
+      allow update: if isOwner(userId) && isValidTutor(request.resource.data);
+    }
+
+    match /classes/{classId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidClass(request.resource.data);
+      allow update: if isAuthenticated() && isValidClass(request.resource.data);
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.studentId) || isOwner(resource.data.tutorId));
+      allow create: if isAuthenticated() && isOwner(request.resource.data.studentId) && isValidBooking(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.studentId) || isOwner(resource.data.tutorId)) && isValidBooking(request.resource.data);
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.studentId) || isAuthenticated()); // Simplified for MVP
+      allow create: if isAuthenticated() && isValidClass(request.resource.data); // Simplified
+      allow update: if isAuthenticated();
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /userBooks/{userBookId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}

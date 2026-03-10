@@ -1,0 +1,8 @@
+{
+  "name": "EduNexus",
+  "description": "AI-powered global education platform combining a tutor marketplace, virtual classroom, AI learning assistant and school management system.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "A user of the EduNexus platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique identifier for the user." },
+        "name": { "type": "string", "description": "The full name of the user." },
+        "email": { "type": "string", "description": "The email address of the user." },
+        "role": { "type": "string", "enum": ["student", "teacher", "parent", "school_admin"], "description": "The role of the user." },
+        "country": { "type": "string", "description": "The country of the user." },
+        "photoURL": { "type": "string", "description": "The URL of the user's profile picture." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the user was created." }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "tutors": {
+      "title": "Tutor",
+      "description": "A tutor profile on the platform.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who is a tutor." },
+        "subjects": { "type": "array", "items": { "type": "string" }, "description": "The subjects the tutor teaches." },
+        "hourlyRate": { "type": "number", "description": "The hourly rate of the tutor." },
+        "experience": { "type": "string", "description": "The experience of the tutor." },
+        "bio": { "type": "string", "description": "A short biography of the tutor." },
+        "rating": { "type": "number", "description": "The average rating of the tutor." },
+        "reviewCount": { "type": "number", "description": "The number of reviews for the tutor." }
+      },
+      "required": ["userId", "subjects", "hourlyRate"]
+    },
+    "classes": {
+      "title": "Class",
+      "description": "A scheduled class session.",
+      "type": "object",
+      "properties": {
+        "tutorId": { "type": "string", "description": "The UID of the tutor." },
+        "subject": { "type": "string", "description": "The subject of the class." },
+        "scheduledTime": { "type": "string", "format": "date-time", "description": "The scheduled time for the class." },
+        "duration": { "type": "number", "description": "The duration of the class in minutes." },
+        "videoSessionLink": { "type": "string", "description": "The link to the virtual classroom." },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"], "description": "The status of the class." }
+      },
+      "required": ["tutorId", "subject", "scheduledTime", "duration"]
+    },
+    "bookings": {
+      "title": "Booking",
+      "description": "A booking for a class.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "The UID of the student." },
+        "tutorId": { "type": "string", "description": "The UID of the tutor." },
+        "classId": { "type": "string", "description": "The ID of the class." },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "refunded"], "description": "The payment status of the booking." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the booking was created." }
+      },
+      "required": ["studentId", "tutorId", "classId", "paymentStatus"]
+    },
+    "assignments": {
+      "title": "Assignment",
+      "description": "An assignment given to a student.",
+      "type": "object",
+      "properties": {
+        "classId": { "type": "string", "description": "The ID of the class." },
+        "studentId": { "type": "string", "description": "The UID of the student." },
+        "title": { "type": "string", "description": "The title of the assignment." },
+        "description": { "type": "string", "description": "The description of the assignment." },
+        "submissionFile": { "type": "string", "description": "The URL of the submitted file." },
+        "grade": { "type": "string", "description": "The grade for the assignment." },
+        "feedback": { "type": "string", "description": "The feedback for the assignment." },
+        "dueDate": { "type": "string", "format": "date-time", "description": "The due date for the assignment." }
+      },
+      "required": ["classId", "studentId", "title"]
+    },
+    "books": {
+      "title": "Book",
+      "description": "An e-book available in the library.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the book." },
+        "author": { "type": "string", "description": "The author of the book." },
+        "description": { "type": "string", "description": "A brief description of the book." },
+        "coverURL": { "type": "string", "description": "The URL of the book cover image." },
+        "downloadURL": { "type": "string", "description": "The URL to download the book." },
+        "category": { "type": "string", "description": "The category of the book." }
+      },
+      "required": ["title", "author", "downloadURL"]
+    },
+    "userBooks": {
+      "title": "UserBook",
+      "description": "A mapping of books downloaded by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "bookId": { "type": "string", "description": "The ID of the book." },
+        "downloadedAt": { "type": "string", "format": "date-time", "description": "The timestamp when the book was downloaded." }
+      },
+      "required": ["userId", "bookId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "users", "description": "User profiles." },
+    "/tutors/{userId}": { "schema": "tutors", "description": "Tutor profiles." },
+    "/classes/{classId}": { "schema": "classes", "description": "Scheduled classes." },
+    "/bookings/{bookingId}": { "schema": "bookings", "description": "Class bookings." },
+    "/assignments/{assignmentId}": { "schema": "assignments", "description": "Student assignments." },
+    "/books/{bookId}": { "schema": "books", "description": "Library books." },
+    "/userBooks/{userBookId}": { "schema": "userBooks", "description": "User's personal library." }
+  }
+}
