@@ -79,6 +79,42 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidForum(data) {
+      return data.keys().hasAll(['name', 'description', 'category', 'createdAt', 'createdBy']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.description is string && data.description.size() < 500 &&
+             data.category is string &&
+             data.createdAt is timestamp &&
+             data.createdBy is string;
+    }
+
+    function isValidForumPost(data) {
+      return data.keys().hasAll(['forumId', 'authorId', 'authorName', 'content', 'createdAt']) &&
+             data.forumId is string &&
+             data.authorId is string &&
+             data.authorName is string &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidForumMember(data) {
+      return data.keys().hasAll(['forumId', 'userId', 'joinedAt']) &&
+             data.forumId is string &&
+             data.userId is string &&
+             data.joinedAt is timestamp;
+    }
+
+    function isForumMember(forumId) {
+      return isAuthenticated() && exists(/databases/$(database)/documents/forumMembers/$(forumId + "_" + request.auth.uid));
+    }
+
+    function isValidUserBook(data) {
+      return data.keys().hasAll(['userId', 'bookId', 'downloadedAt']) &&
+             data.userId is string &&
+             data.bookId is string &&
+             data.downloadedAt is timestamp;
+    }
+
     function isValidTutor(data) {
       return data.keys().hasAll(['userId', 'subjects', 'hourlyRate']) &&
              data.userId is string &&
@@ -142,7 +178,25 @@ service cloud.firestore {
 
     match /userBooks/{userBookId} {
       allow read: if isAuthenticated() && isOwner(resource.data.userId);
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isValidUserBook(request.resource.data);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    match /forums/{forumId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /forumPosts/{postId} {
+      allow read: if isAuthenticated() && isForumMember(resource.data.forumId);
+      allow create: if isAuthenticated() && isForumMember(request.resource.data.forumId) && 
+                    isOwner(request.resource.data.authorId) && isValidForumPost(request.resource.data);
+      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+    }
+
+    match /forumMembers/{memberId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isValidForumMember(request.resource.data);
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
   }

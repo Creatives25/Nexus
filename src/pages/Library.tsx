@@ -5,6 +5,57 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { motion } from 'motion/react';
 import { Book, Download, Search, Filter, CheckCircle, Loader2 } from 'lucide-react';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 interface BookData {
   id: string;
   title: string;
@@ -98,7 +149,7 @@ export default function Library() {
           setBooks(booksSnap.docs.map(d => ({ id: d.id, ...d.data() } as BookData)));
         }
       } catch (err) {
-        console.error(err);
+        handleFirestoreError(err, OperationType.GET, 'books/userBooks');
       } finally {
         setLoading(false);
       }
@@ -121,9 +172,9 @@ export default function Library() {
         downloadedAt: serverTimestamp()
       });
       setUserBookIds(prev => [...prev, bookId]);
+      // Show a temporary success state if needed, but the UI already updates via userBookIds
     } catch (err) {
-      console.error(err);
-      alert("Failed to add book to your library.");
+      handleFirestoreError(err, OperationType.CREATE, 'userBooks');
     } finally {
       setDownloadingId(null);
     }

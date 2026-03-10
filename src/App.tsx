@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import TutorProfile from './pages/TutorProfile';
 import Classroom from './pages/Classroom';
 import Library from './pages/Library';
+import AdminLibrary from './pages/AdminLibrary';
+import Forums from './pages/Forums';
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
@@ -29,6 +31,8 @@ export default function App() {
           <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <Auth />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/forums" element={user ? <Forums /> : <Navigate to="/auth" />} />
+          <Route path="/admin/library" element={user ? <AdminLibrary /> : <Navigate to="/auth" />} />
           <Route path="/tutor/:id" element={<TutorProfile />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
           <Route path="/classroom/:id" element={user ? <Classroom /> : <Navigate to="/auth" />} />

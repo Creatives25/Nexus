@@ -97,6 +97,44 @@
         "downloadedAt": { "type": "string", "format": "date-time", "description": "The timestamp when the book was downloaded." }
       },
       "required": ["userId", "bookId"]
+    },
+    "forums": {
+      "title": "Forum",
+      "description": "A subject-specific discussion forum.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the forum." },
+        "description": { "type": "string", "description": "The description of the forum." },
+        "category": { "type": "string", "description": "The category of the forum." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the forum was created." },
+        "createdBy": { "type": "string", "description": "The UID of the creator." }
+      },
+      "required": ["name", "description", "category", "createdAt", "createdBy"]
+    },
+    "forumPosts": {
+      "title": "ForumPost",
+      "description": "A post within a forum.",
+      "type": "object",
+      "properties": {
+        "forumId": { "type": "string", "description": "The ID of the forum." },
+        "authorId": { "type": "string", "description": "The UID of the author." },
+        "authorName": { "type": "string", "description": "The name of the author." },
+        "authorPhoto": { "type": "string", "description": "The photo URL of the author." },
+        "content": { "type": "string", "description": "The content of the post." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the post was created." }
+      },
+      "required": ["forumId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "forumMembers": {
+      "title": "ForumMember",
+      "description": "A mapping of users joined to a forum.",
+      "type": "object",
+      "properties": {
+        "forumId": { "type": "string", "description": "The ID of the forum." },
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "joinedAt": { "type": "string", "format": "date-time", "description": "The timestamp when the user joined." }
+      },
+      "required": ["forumId", "userId", "joinedAt"]
     }
   },
   "firestore": {
@@ -106,6 +144,9 @@
     "/bookings/{bookingId}": { "schema": "bookings", "description": "Class bookings." },
     "/assignments/{assignmentId}": { "schema": "assignments", "description": "Student assignments." },
     "/books/{bookId}": { "schema": "books", "description": "Library books." },
-    "/userBooks/{userBookId}": { "schema": "userBooks", "description": "User's personal library." }
+    "/userBooks/{userBookId}": { "schema": "userBooks", "description": "User's personal library." },
+    "/forums/{forumId}": { "schema": "forums", "description": "Subject forums." },
+    "/forumPosts/{postId}": { "schema": "forumPosts", "description": "Forum posts." },
+    "/forumMembers/{memberId}": { "schema": "forumMembers", "description": "Forum memberships." }
   }
 }

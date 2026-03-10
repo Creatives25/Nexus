@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { auth, signOut } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { BookOpen, Search, User, LogOut, Menu, X, Library as LibraryIcon } from 'lucide-react';
+import { BookOpen, Search, User, LogOut, Menu, X, Library as LibraryIcon, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -39,6 +39,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <LibraryIcon size={18} />
                 Library
               </Link>
+              {user && (
+                <Link to="/forums" className="text-stone-600 hover:text-emerald-600 font-medium transition-colors flex items-center gap-2">
+                  <MessageSquare size={18} />
+                  Forums
+                </Link>
+              )}
               {user ? (
                 <>
                   <Link to="/dashboard" className="text-stone-600 hover:text-emerald-600 font-medium transition-colors flex items-center gap-2">
@@ -99,6 +105,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 >
                   Library
                 </Link>
+                {user && (
+                  <Link 
+                    to="/forums" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block text-lg font-medium text-stone-600 hover:text-emerald-600"
+                  >
+                    Forums
+                  </Link>
+                )}
                 {user ? (
                   <>
                     <Link 

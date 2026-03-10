@@ -1,11 +1,62 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { auth, db } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, limit, deleteDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { motion } from 'motion/react';
-import { Calendar, Clock, Video, BookOpen, Star, Settings, Plus, CheckCircle, AlertCircle, ChevronRight, User, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Calendar, Clock, Video, BookOpen, Star, Settings, Plus, CheckCircle, AlertCircle, ChevronRight, User, Sparkles, X, Trash2, Eye, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 interface UserProfile {
   name: string;
@@ -32,6 +83,7 @@ interface UserBook {
   title: string;
   author: string;
   coverURL: string;
+  downloadedAt?: any;
 }
 
 interface Book {
@@ -48,6 +100,7 @@ export default function Dashboard() {
   const [userBooks, setUserBooks] = React.useState<UserBook[]>([]);
   const [libraryBooks, setLibraryBooks] = React.useState<Book[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [selectedBook, setSelectedBook] = React.useState<UserBook | null>(null);
   const [isEditingTutor, setIsEditingTutor] = React.useState(false);
   const [tutorData, setTutorData] = React.useState({
     subjects: '',
@@ -80,7 +133,8 @@ export default function Dashboard() {
                 bookId: ub.bookId,
                 title: b.title,
                 author: b.author,
-                coverURL: b.coverURL
+                coverURL: b.coverURL,
+                downloadedAt: ub.downloadedAt
               });
             }
           }
@@ -156,7 +210,7 @@ export default function Dashboard() {
           setClasses(classesData);
         }
       } catch (err) {
-        console.error(err);
+        handleFirestoreError(err, OperationType.GET, 'dashboard_data');
       } finally {
         setLoading(false);
       }
@@ -178,8 +232,20 @@ export default function Dashboard() {
       setIsEditingTutor(false);
       alert('Profile updated successfully!');
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.UPDATE, `tutors/${user.uid}`);
       alert('Failed to update profile.');
+    }
+  };
+
+  const handleRemoveBook = async (userBookId: string) => {
+    if (!window.confirm('Are you sure you want to remove this book from your library?')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'userBooks', userBookId));
+      setUserBooks(prev => prev.filter(b => b.id !== userBookId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `userBooks/${userBookId}`);
+      alert('Failed to remove book.');
     }
   };
 
@@ -318,14 +384,14 @@ export default function Dashboard() {
               <div className="space-y-8">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold">School Library</h2>
-                  <Link to="/library" className="text-emerald-600 font-bold text-sm hover:underline">Manage All Books</Link>
+                  <Link to="/admin/library" className="text-emerald-600 font-bold text-sm hover:underline">Manage All Books</Link>
                 </div>
                 <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold">Recently Added Books</h3>
-                    <button className="text-stone-400 hover:text-emerald-600 transition-colors">
+                    <Link to="/admin/library" className="text-stone-400 hover:text-emerald-600 transition-colors">
                       <Plus size={20} />
-                    </button>
+                    </Link>
                   </div>
                   <div className="space-y-4">
                     {libraryBooks.map((book) => (
@@ -432,18 +498,37 @@ export default function Dashboard() {
                   <motion.div 
                     key={book.id}
                     whileHover={{ y: -5 }}
-                    className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm group"
+                    className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm group relative"
                   >
-                    <div className="aspect-[2/3] rounded-xl overflow-hidden mb-3">
+                    <div className="aspect-[2/3] rounded-xl overflow-hidden mb-3 relative">
                       <img 
                         src={book.coverURL} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         referrerPolicy="no-referrer"
                         alt={book.title}
                       />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => setSelectedBook(book)}
+                          className="p-2 bg-white rounded-full text-stone-900 hover:bg-emerald-600 hover:text-white transition-all"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleRemoveBook(book.id)}
+                          className="p-2 bg-white rounded-full text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     <h4 className="text-sm font-bold line-clamp-1">{book.title}</h4>
-                    <p className="text-xs text-stone-500">{book.author}</p>
+                    <p className="text-xs text-stone-500 mb-2">{book.author}</p>
+                    {book.downloadedAt && (
+                      <p className="text-[10px] text-stone-400 font-medium">
+                        Added {book.downloadedAt.toDate ? format(book.downloadedAt.toDate(), 'MMM d, yyyy') : 'recently'}
+                      </p>
+                    )}
                   </motion.div>
                 ))}
               </div>
@@ -497,6 +582,22 @@ export default function Dashboard() {
 
           <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-6">
             <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold">Subject Forums</h3>
+              <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
+                <MessageSquare size={18} />
+              </div>
+            </div>
+            <p className="text-stone-500 text-sm leading-relaxed">
+              Join subject-specific groups to discuss ideas and solutions with your peers.
+            </p>
+            <Link to="/forums" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+              Browse Forums
+              <ChevronRight size={18} />
+            </Link>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold">AI Study Buddy</h3>
               <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
                 <Sparkles size={18} />
@@ -512,6 +613,69 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Book Reader Modal */}
+      <AnimatePresence>
+        {selectedBook && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedBook(null)}
+              className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl h-full max-h-[90vh] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                    <BookOpen size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold">{selectedBook.title}</h3>
+                    <p className="text-xs text-stone-500">{selectedBook.author}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedBook(null)}
+                  className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-8 md:p-12">
+                <div className="max-w-2xl mx-auto space-y-8">
+                  <div className="aspect-[2/3] w-48 mx-auto rounded-xl overflow-hidden shadow-xl">
+                    <img src={selectedBook.coverURL} className="w-full h-full object-cover" alt={selectedBook.title} referrerPolicy="no-referrer" />
+                  </div>
+                  <div className="prose prose-stone max-w-none">
+                    <h2 className="text-3xl font-bold text-center mb-8">Chapter 1: The Beginning</h2>
+                    <p className="text-lg leading-relaxed text-stone-700">
+                      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                    </p>
+                    <p className="text-lg leading-relaxed text-stone-700">
+                      Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris.
+                    </p>
+                    <p className="text-lg leading-relaxed text-stone-700">
+                      Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, commodo eget, consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, felis nisl adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis scelerisque nunc. Nullam arcu. Aliquam consequat. Curabitur augue lorem, dapibus quis, laoreet et, pretium ac, nisi. Aenean magna nisl, mollis quis, molestie eu, feugiat in, orci. In hac habitasse platea dictumst.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-stone-100 bg-stone-50 flex justify-between items-center">
+                <button className="text-sm font-bold text-stone-500 hover:text-stone-900 transition-colors">Previous Page</button>
+                <div className="text-sm font-medium text-stone-400">Page 1 of 240</div>
+                <button className="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors">Next Page</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
