@@ -33,22 +33,20 @@ export default function TutorProfile() {
       if (!id) return;
       try {
         const tutorDoc = await getDoc(doc(db, 'tutors', id));
-        const userDoc = await getDoc(doc(db, 'users', id));
         
-        if (tutorDoc.exists() && userDoc.exists()) {
+        if (tutorDoc.exists()) {
           const t = tutorDoc.data();
-          const u = userDoc.data();
           setTutor({
             userId: id,
-            name: u.name,
-            photoURL: u.photoURL,
-            subjects: t.subjects,
-            hourlyRate: t.hourlyRate,
+            name: t.name || 'Anonymous Tutor',
+            photoURL: t.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(t.name || 'T')}&background=random`,
+            subjects: t.subjects || [],
+            hourlyRate: t.hourlyRate || 0,
             rating: t.rating || 0,
             reviewCount: t.reviewCount || 0,
-            bio: t.bio,
-            experience: t.experience,
-            country: u.country || 'Global'
+            bio: t.bio || '',
+            experience: t.experience || '',
+            country: t.country || 'Global'
           });
         }
       } catch (err) {

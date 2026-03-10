@@ -30,27 +30,20 @@ export default function Marketplace() {
       setLoading(true);
       try {
         const tutorsSnap = await getDocs(collection(db, 'tutors'));
-        const tutorsData: Tutor[] = [];
-        
-        for (const tutorDoc of tutorsSnap.docs) {
-          const tutor = tutorDoc.data();
-          const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', tutor.userId)));
-          const userData = userDoc.docs[0]?.data();
-          
-          if (userData) {
-            tutorsData.push({
-              userId: tutor.userId,
-              name: userData.name,
-              photoURL: userData.photoURL,
-              subjects: tutor.subjects,
-              hourlyRate: tutor.hourlyRate,
-              rating: tutor.rating || 0,
-              reviewCount: tutor.reviewCount || 0,
-              bio: tutor.bio,
-              country: userData.country || 'Global'
-            });
-          }
-        }
+        const tutorsData: Tutor[] = tutorsSnap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            userId: data.userId,
+            name: data.name || 'Anonymous Tutor',
+            photoURL: data.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || 'T')}&background=random`,
+            subjects: data.subjects || [],
+            hourlyRate: data.hourlyRate || 0,
+            rating: data.rating || 0,
+            reviewCount: data.reviewCount || 0,
+            bio: data.bio || '',
+            country: data.country || 'Global'
+          };
+        });
         setTutors(tutorsData);
       } catch (err) {
         console.error(err);

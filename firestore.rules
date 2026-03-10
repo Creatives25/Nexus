@@ -117,8 +117,10 @@ service cloud.firestore {
     }
 
     function isValidTutor(data) {
-      return data.keys().hasAll(['userId', 'subjects', 'hourlyRate']) &&
+      return data.keys().hasAll(['userId', 'name', 'photoURL', 'subjects', 'hourlyRate']) &&
              data.userId is string &&
+             data.name is string &&
+             data.photoURL is string &&
              data.subjects is list &&
              data.hourlyRate is number && data.hourlyRate >= 0;
     }
@@ -142,8 +144,10 @@ service cloud.firestore {
     }
 
     function isValidSchool(data) {
-      return data.keys().hasAll(['userId', 'schoolName', 'verified', 'createdAt']) &&
+      return data.keys().hasAll(['userId', 'name', 'photoURL', 'schoolName', 'verified', 'createdAt']) &&
              data.userId is string &&
+             data.name is string &&
+             data.photoURL is string &&
              data.schoolName is string && data.schoolName.size() > 0 &&
              data.verified is bool &&
              data.createdAt is timestamp;
@@ -151,7 +155,7 @@ service cloud.firestore {
 
     // Rules
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
     }

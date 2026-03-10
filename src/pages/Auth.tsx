@@ -53,17 +53,22 @@ export default function Auth() {
       if (userData.role === 'teacher') {
         await setDoc(doc(db, 'tutors', user.uid), {
           userId: user.uid,
+          name: userData.name,
+          photoURL: userData.photoURL,
           subjects: [],
           hourlyRate: 25,
           experience: '',
           bio: '',
           rating: 0,
-          reviewCount: 0
+          reviewCount: 0,
+          createdAt: serverTimestamp()
         });
       } else if (userData.role === 'school_admin') {
         await setDoc(doc(db, 'schools', user.uid), {
           userId: user.uid,
-          schoolName: schoolName || 'My Academy',
+          name: userData.name,
+          photoURL: userData.photoURL,
+          schoolName: userData.schoolName || schoolName || 'My Academy',
           verified: false,
           createdAt: serverTimestamp()
         });
@@ -80,29 +85,55 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (err: any) {
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+            throw new Error('Invalid email or password. Please check your credentials.');
+          } else if (err.code === 'auth/too-many-requests') {
+            throw new Error('Too many failed login attempts. Please try again later.');
+          } else if (err.code === 'auth/network-request-failed') {
+            throw new Error('Network error. Please check your internet connection.');
+          }
+          throw err;
+        }
       } else {
         // Validation
         if (!fullName || !username) {
           throw new Error('Please fill in all required fields.');
         }
+        if (password.length < 6) {
+          throw new Error('Password should be at least 6 characters.');
+        }
 
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-        const user = result.user;
+        try {
+          const result = await createUserWithEmailAndPassword(auth, email, password);
+          const user = result.user;
 
-        await updateProfile(user, { displayName: fullName });
+          await updateProfile(user, { displayName: fullName });
 
-        const userData = {
-          uid: user.uid,
-          name: fullName,
-          username: username.toLowerCase(),
-          email: user.email || '',
-          role: role,
-          photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
-          createdAt: serverTimestamp(),
-        };
+          const userData = {
+            uid: user.uid,
+            name: fullName,
+            username: username.toLowerCase(),
+            email: user.email || '',
+            role: role,
+            schoolName: role === 'school_admin' ? schoolName : undefined,
+            photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random`,
+            createdAt: serverTimestamp(),
+          };
 
-        await saveUserProfile(user, userData);
+          await saveUserProfile(user, userData);
+        } catch (err: any) {
+          if (err.code === 'auth/email-already-in-use') {
+            throw new Error('This email is already registered. Please sign in instead.');
+          } else if (err.code === 'auth/invalid-email') {
+            throw new Error('Please enter a valid email address.');
+          } else if (err.code === 'auth/weak-password') {
+            throw new Error('Password is too weak. Please use a stronger password.');
+          }
+          throw err;
+        }
       }
       navigate('/dashboard');
     } catch (err: any) {
@@ -124,12 +155,16 @@ export default function Auth() {
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
+        const baseUsername = (user.email?.split('@')[0] || user.uid.slice(0, 8)).toLowerCase();
+        const finalUsername = baseUsername.length < 3 ? `${baseUsername}${user.uid.slice(0, 3)}` : baseUsername;
+        
         const userData = {
           uid: user.uid,
           name: user.displayName || user.email?.split('@')[0] || 'Anonymous User',
-          username: (user.email?.split('@')[0] || user.uid.slice(0, 8)).toLowerCase(),
+          username: finalUsername,
           email: user.email || '',
           role: role,
+          schoolName: role === 'school_admin' ? schoolName : undefined,
           photoURL: user.photoURL || '',
           createdAt: serverTimestamp(),
         };
