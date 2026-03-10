@@ -1,6 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { auth, googleProvider, signInWithPopup, db } from '../firebase';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { auth, googleProvider, signInWithPopup, db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { BookOpen, LogIn, UserPlus } from 'lucide-react';
@@ -11,6 +11,16 @@ export default function Auth() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const mode = params.get('mode');
+    const initialRole = params.get('role');
+    
+    if (mode === 'signup') setIsLogin(false);
+    if (initialRole === 'teacher' || initialRole === 'student') setRole(initialRole as any);
+  }, [location]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -20,37 +30,52 @@ export default function Auth() {
       const user = result.user;
 
       // Check if user exists in Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
         // Create new user profile
-        await setDoc(doc(db, 'users', user.uid), {
+        const userData = {
           uid: user.uid,
-          name: user.displayName,
+          name: user.displayName || user.email?.split('@')[0] || 'Anonymous User',
           email: user.email,
           role: role,
-          photoURL: user.photoURL,
+          photoURL: user.photoURL || '',
           createdAt: serverTimestamp(),
-        });
+        };
+
+        try {
+          await setDoc(userDocRef, userData);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}`);
+        }
 
         // If teacher, create tutor profile
         if (role === 'teacher') {
-          await setDoc(doc(db, 'tutors', user.uid), {
-            userId: user.uid,
-            subjects: [],
-            hourlyRate: 25,
-            experience: '',
-            bio: '',
-            rating: 0,
-            reviewCount: 0
-          });
+          try {
+            await setDoc(doc(db, 'tutors', user.uid), {
+              userId: user.uid,
+              subjects: [],
+              hourlyRate: 25,
+              experience: '',
+              bio: '',
+              rating: 0,
+              reviewCount: 0
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.CREATE, `tutors/${user.uid}`);
+          }
         }
       }
 
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
-      setError('Failed to sign in. Please try again.');
+      if (err.message?.includes('permission-denied')) {
+        setError('Permission denied. Please contact support.');
+      } else {
+        setError('Failed to sign in. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

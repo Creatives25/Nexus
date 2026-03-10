@@ -25,14 +25,14 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-4">
               <Link 
-                to="/marketplace" 
+                to="/auth?mode=signup&role=student" 
                 className="bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg hover:shadow-emerald-200 flex items-center gap-2 group"
               >
                 Find a Tutor
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link 
-                to="/auth" 
+                to="/auth?mode=signup&role=teacher" 
                 className="bg-white text-stone-900 border-2 border-stone-200 px-8 py-4 rounded-full font-bold text-lg hover:border-emerald-600 transition-all"
               >
                 Become a Tutor
@@ -136,7 +136,7 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap gap-4">
             <Link 
-              to="/auth" 
+              to="/auth?mode=signup" 
               className="bg-white text-emerald-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-50 transition-all"
             >
               Get Started for Free
