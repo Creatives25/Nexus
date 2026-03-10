@@ -76,7 +76,8 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string &&
              data.role in ['student', 'teacher', 'parent', 'school_admin'] &&
-             data.createdAt is timestamp;
+             data.createdAt is timestamp &&
+             (!('username' in data) || (data.username is string && data.username.size() >= 3 && data.username.size() <= 30));
     }
 
     function isValidForum(data) {
@@ -140,11 +141,25 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidSchool(data) {
+      return data.keys().hasAll(['userId', 'schoolName', 'verified', 'createdAt']) &&
+             data.userId is string &&
+             data.schoolName is string && data.schoolName.size() > 0 &&
+             data.verified is bool &&
+             data.createdAt is timestamp;
+    }
+
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /schools/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && isValidSchool(request.resource.data);
+      allow update: if isOwner(userId) && isValidSchool(request.resource.data);
     }
 
     match /tutors/{userId} {

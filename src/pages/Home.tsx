@@ -136,16 +136,16 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap gap-4">
             <Link 
-              to="/auth?mode=signup" 
+              to="/auth?mode=signup&role=student" 
               className="bg-white text-emerald-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-50 transition-all"
             >
               Get Started for Free
             </Link>
             <Link 
-              to="/marketplace" 
+              to="/auth?mode=signup&role=school_admin" 
               className="bg-emerald-800 text-white border border-emerald-700 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all"
             >
-              Browse Tutors
+              Register Your School
             </Link>
           </div>
         </div>
