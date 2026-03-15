@@ -6,6 +6,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, Video, BookOpen, Star, Settings, Plus, CheckCircle, AlertCircle, ChevronRight, User, Sparkles, X, Trash2, Eye, MessageSquare, ArrowRight, Cpu } from 'lucide-react';
 import { format } from 'date-fns';
+import SchoolDashboard from './SchoolDashboard';
 
 interface UserProfile {
   name: string;
@@ -42,12 +43,21 @@ interface Book {
   coverURL: string;
 }
 
+interface DigitalClassroom {
+  id: string;
+  name: string;
+  subject: string;
+  teacherName?: string;
+  schoolName?: string;
+}
+
 export default function Dashboard() {
   const [user] = useAuthState(auth);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [classes, setClasses] = React.useState<ClassSession[]>([]);
   const [userBooks, setUserBooks] = React.useState<UserBook[]>([]);
   const [libraryBooks, setLibraryBooks] = React.useState<Book[]>([]);
+  const [digitalClassrooms, setDigitalClassrooms] = React.useState<DigitalClassroom[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedBook, setSelectedBook] = React.useState<UserBook | null>(null);
   const [isEditingTutor, setIsEditingTutor] = React.useState(false);
@@ -100,6 +110,10 @@ export default function Dashboard() {
           if (u.role === 'teacher') {
             q = query(collection(db, 'classes'), where('tutorId', '==', user.uid));
             
+            // Fetch digital classrooms for teacher
+            const classroomsSnap = await getDocs(query(collection(db, 'classrooms'), where('teacherId', '==', user.uid)));
+            setDigitalClassrooms(classroomsSnap.docs.map(d => ({ id: d.id, ...d.data() } as DigitalClassroom)));
+
             // Also fetch tutor profile for editing
             const tutorDoc = await getDoc(doc(db, 'tutors', user.uid));
             if (tutorDoc.exists()) {
@@ -131,10 +145,30 @@ export default function Dashboard() {
                 }
               }
               setClasses(filteredClasses);
-              setLoading(false);
-              return;
             }
-            setClasses([]);
+
+            // Fetch digital classrooms for student
+            const enrollmentsSnap = await getDocs(query(collection(db, 'enrollments'), where('studentId', '==', user.uid)));
+            const classroomIds = enrollmentsSnap.docs.map(d => d.data().classroomId);
+            const studentClassrooms: DigitalClassroom[] = [];
+            
+            for (const cid of classroomIds) {
+              const cDoc = await getDoc(doc(db, 'classrooms', cid));
+              if (cDoc.exists()) {
+                const c = cDoc.data();
+                const teacherDoc = await getDoc(doc(db, 'users', c.teacherId));
+                const schoolDoc = await getDoc(doc(db, 'schools', c.schoolId));
+                studentClassrooms.push({
+                  id: cDoc.id,
+                  name: c.name,
+                  subject: c.subject,
+                  teacherName: teacherDoc.exists() ? teacherDoc.data().name : 'Unknown',
+                  schoolName: schoolDoc.exists() ? schoolDoc.data().schoolName : 'Unknown'
+                });
+              }
+            }
+            setDigitalClassrooms(studentClassrooms);
+
             setLoading(false);
             return;
           }
@@ -229,6 +263,10 @@ export default function Dashboard() {
     );
   }
 
+  if (profile?.role === 'school_admin') {
+    return <SchoolDashboard />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20">
       {/* Header & Quick Actions */}
@@ -254,8 +292,7 @@ export default function Dashboard() {
               Welcome back, <span className="text-emerald-600">{profile?.name.split(' ')[0]}</span>
             </h1>
             <p className="text-stone-500 font-medium">
-              {profile?.role === 'teacher' ? 'Ready to inspire your students today?' : 
-               profile?.role === 'school_admin' ? 'Managing EduNexus Academy' : 'You have 3 classes scheduled for today.'}
+              {profile?.role === 'teacher' ? 'Ready to inspire your students today?' : 'You have 3 classes scheduled for today.'}
             </p>
           </div>
         </div>
@@ -377,51 +414,11 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Left Column: Active Learning */}
         <div className="lg:col-span-8 space-y-10">
-          {profile?.role === 'school_admin' ? (
-            <div className="space-y-10">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-stone-900">School Library</h2>
-                <Link to="/admin/library" className="text-emerald-600 font-bold text-sm hover:underline flex items-center gap-1">
-                  Manage All <ChevronRight size={16} />
-                </Link>
-              </div>
-              <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm overflow-hidden">
-                <div className="p-8 border-b border-stone-50 flex items-center justify-between">
-                  <h3 className="text-lg font-bold">Recently Added Books</h3>
-                  <Link to="/admin/library" className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-400 hover:text-emerald-600 transition-colors">
-                    <Plus size={20} />
-                  </Link>
-                </div>
-                <div className="divide-y divide-stone-50">
-                  {libraryBooks.map((book) => (
-                    <div key={book.id} className="flex items-center justify-between p-6 hover:bg-stone-50 transition-colors group">
-                      <div className="flex items-center gap-5">
-                        <div className="w-12 h-16 rounded-lg overflow-hidden shadow-sm">
-                          <img src={book.coverURL} className="w-full h-full object-cover" alt={book.title} referrerPolicy="no-referrer" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-stone-900 group-hover:text-emerald-600 transition-colors">{book.title}</p>
-                          <p className="text-sm text-stone-400">{book.author}</p>
-                        </div>
-                      </div>
-                      <button className="w-10 h-10 rounded-xl flex items-center justify-center text-stone-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  ))}
-                  {libraryBooks.length === 0 && (
-                    <div className="p-12 text-center text-stone-400 italic">No books in the library yet.</div>
-                  )}
-                </div>
-              </div>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-stone-900">Upcoming Classes</h2>
+              <Link to="/dashboard" className="text-stone-400 font-bold text-sm hover:text-emerald-600 transition-colors">View Schedule</Link>
             </div>
-          ) : (
-            <>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-stone-900">Upcoming Classes</h2>
-                  <Link to="/dashboard" className="text-stone-400 font-bold text-sm hover:text-emerald-600 transition-colors">View Schedule</Link>
-                </div>
 
                 {classes.length > 0 ? (
                   <div className="grid grid-cols-1 gap-6">
@@ -492,6 +489,67 @@ export default function Dashboard() {
                 )}
               </div>
 
+              {/* Digital Classrooms Section */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-stone-900">Digital Classrooms</h2>
+                  <span className="text-stone-400 font-bold text-sm">{digitalClassrooms.length} Active</span>
+                </div>
+
+                {digitalClassrooms.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {digitalClassrooms.map((classroom) => (
+                      <motion.div
+                        key={classroom.id}
+                        whileHover={{ y: -4 }}
+                        className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500">
+                            <BookOpen size={24} />
+                          </div>
+                          <span className="px-3 py-1 bg-stone-50 text-stone-500 text-[10px] font-bold uppercase tracking-widest rounded-full">
+                            {classroom.subject}
+                          </span>
+                        </div>
+                        <div className="space-y-1 mb-6">
+                          <h3 className="text-xl font-bold text-stone-900 group-hover:text-emerald-600 transition-colors">
+                            {classroom.name}
+                          </h3>
+                          <p className="text-stone-500 text-sm font-medium">
+                            {profile?.role === 'teacher' ? 'Your Classroom' : `Teacher: ${classroom.teacherName}`}
+                          </p>
+                          {classroom.schoolName && (
+                            <p className="text-stone-400 text-xs font-bold uppercase tracking-wider">
+                              {classroom.schoolName}
+                            </p>
+                          )}
+                        </div>
+                        <Link
+                          to={`/digital-classroom/${classroom.id}`}
+                          className="w-full bg-stone-50 text-stone-900 py-3 rounded-xl font-bold hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                        >
+                          Enter Classroom
+                          <ArrowRight size={16} />
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-stone-50 p-10 rounded-[2.5rem] border border-dashed border-stone-200 text-center space-y-4">
+                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto text-stone-300 shadow-sm">
+                      <BookOpen size={28} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-bold text-stone-900">No digital classrooms</h3>
+                      <p className="text-stone-500 text-sm max-w-xs mx-auto">
+                        {profile?.role === 'teacher' ? 'You haven\'t been assigned to any digital classrooms yet.' : 'You haven\'t been enrolled in any digital classrooms by your school.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-stone-900">My Library</h2>
@@ -558,11 +616,9 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* Right Column: Insights & Tools */}
+            {/* Right Column: Insights & Tools */}
         <div className="lg:col-span-4 space-y-10">
           {/* Progress Widget */}
           <div className="bg-stone-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">

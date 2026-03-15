@@ -153,6 +153,28 @@ service cloud.firestore {
              data.createdAt is timestamp;
     }
 
+    function isValidClassroom(data) {
+      return data.keys().hasAll(['schoolId', 'teacherId', 'name', 'subject']) &&
+             data.schoolId is string &&
+             data.teacherId is string &&
+             data.name is string && data.name.size() > 0 &&
+             data.subject is string && data.subject.size() > 0;
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['classroomId', 'title', 'weekNumber']) &&
+             data.classroomId is string &&
+             data.title is string && data.title.size() > 0 &&
+             data.weekNumber is number;
+    }
+
+    function isValidEnrollment(data) {
+      return data.keys().hasAll(['classroomId', 'studentId', 'schoolId']) &&
+             data.classroomId is string &&
+             data.studentId is string &&
+             data.schoolId is string;
+    }
+
     // Rules
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -217,6 +239,22 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isValidForumMember(request.resource.data);
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    match /classrooms/{classroomId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && (isOwner(request.resource.data.schoolId) || isAdmin());
+      
+      match /activities/{activityId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated() && (isOwner(get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId) || isAdmin());
+      }
+    }
+
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.studentId) || isOwner(resource.data.schoolId) || isAdmin());
+      allow create: if isAuthenticated() && (isOwner(request.resource.data.schoolId) || isAdmin());
+      allow delete: if isAuthenticated() && (isOwner(resource.data.schoolId) || isAdmin());
     }
   }
 }

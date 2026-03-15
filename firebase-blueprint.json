@@ -148,6 +148,46 @@
         "joinedAt": { "type": "string", "format": "date-time", "description": "The timestamp when the user joined." }
       },
       "required": ["forumId", "userId", "joinedAt"]
+    },
+    "classrooms": {
+      "title": "Classroom",
+      "description": "A digital classroom managed by a school.",
+      "type": "object",
+      "properties": {
+        "schoolId": { "type": "string", "description": "The UID of the school admin." },
+        "teacherId": { "type": "string", "description": "The UID of the teacher." },
+        "name": { "type": "string", "description": "The name of the classroom." },
+        "subject": { "type": "string", "description": "The subject taught." },
+        "description": { "type": "string", "description": "A brief description." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+      },
+      "required": ["schoolId", "teacherId", "name", "subject"]
+    },
+    "activities": {
+      "title": "Activity",
+      "description": "A weekly activity uploaded by a teacher.",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string", "description": "The ID of the classroom." },
+        "title": { "type": "string", "description": "The title of the activity." },
+        "description": { "type": "string", "description": "The description of the activity." },
+        "fileUrl": { "type": "string", "description": "Optional file URL." },
+        "weekNumber": { "type": "number", "description": "The week number for this activity." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Upload timestamp." }
+      },
+      "required": ["classroomId", "title", "weekNumber"]
+    },
+    "enrollments": {
+      "title": "Enrollment",
+      "description": "A student's enrollment in a classroom.",
+      "type": "object",
+      "properties": {
+        "classroomId": { "type": "string", "description": "The ID of the classroom." },
+        "studentId": { "type": "string", "description": "The UID of the student." },
+        "schoolId": { "type": "string", "description": "The UID of the school admin." },
+        "enrolledAt": { "type": "string", "format": "date-time", "description": "Enrollment timestamp." }
+      },
+      "required": ["classroomId", "studentId", "schoolId"]
     }
   },
   "firestore": {
@@ -161,6 +201,9 @@
     "/userBooks/{userBookId}": { "schema": "userBooks", "description": "User's personal library." },
     "/forums/{forumId}": { "schema": "forums", "description": "Subject forums." },
     "/forumPosts/{postId}": { "schema": "forumPosts", "description": "Forum posts." },
-    "/forumMembers/{memberId}": { "schema": "forumMembers", "description": "Forum memberships." }
+    "/forumMembers/{memberId}": { "schema": "forumMembers", "description": "Forum memberships." },
+    "/classrooms/{classroomId}": { "schema": "classrooms", "description": "Digital classrooms." },
+    "/classrooms/{classroomId}/activities/{activityId}": { "schema": "activities", "description": "Weekly activities." },
+    "/enrollments/{enrollmentId}": { "schema": "enrollments", "description": "Classroom enrollments." }
   }
 }

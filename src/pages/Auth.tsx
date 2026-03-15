@@ -88,7 +88,9 @@ export default function Auth() {
         try {
           await signInWithEmailAndPassword(auth, email, password);
         } catch (err: any) {
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          if (err.code === 'auth/operation-not-allowed') {
+            throw new Error('Email/Password sign-in is not enabled in your Firebase project. You can enable it in the Firebase Console, or simply use the "Google Account" button below to sign in immediately.');
+          } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
             throw new Error('Invalid email or password. Please check your credentials.');
           } else if (err.code === 'auth/too-many-requests') {
             throw new Error('Too many failed login attempts. Please try again later.');
@@ -98,7 +100,6 @@ export default function Auth() {
           throw err;
         }
       } else {
-        // Validation
         if (!fullName || !username) {
           throw new Error('Please fill in all required fields.');
         }
@@ -125,7 +126,9 @@ export default function Auth() {
 
           await saveUserProfile(user, userData);
         } catch (err: any) {
-          if (err.code === 'auth/email-already-in-use') {
+          if (err.code === 'auth/operation-not-allowed') {
+            throw new Error('Email/Password sign-in is not enabled in your Firebase project. You can enable it in the Firebase Console, or simply use the "Google Account" button below to create your account immediately.');
+          } else if (err.code === 'auth/email-already-in-use') {
             throw new Error('This email is already registered. Please sign in instead.');
           } else if (err.code === 'auth/invalid-email') {
             throw new Error('Please enter a valid email address.');

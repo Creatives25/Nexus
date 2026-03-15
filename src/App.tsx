@@ -8,9 +8,11 @@ import Marketplace from './pages/Marketplace';
 import Dashboard from './pages/Dashboard';
 import TutorProfile from './pages/TutorProfile';
 import Classroom from './pages/Classroom';
+import DigitalClassroom from './pages/DigitalClassroom';
 import Library from './pages/Library';
 import AdminLibrary from './pages/AdminLibrary';
 import Forums from './pages/Forums';
+import VirtualClassroom from './pages/VirtualClassroom';
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/tutor/:id" element={<TutorProfile />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
           <Route path="/classroom/:id" element={user ? <Classroom /> : <Navigate to="/auth" />} />
+          <Route path="/digital-classroom/:id" element={user ? <DigitalClassroom /> : <Navigate to="/auth" />} />
+          <Route path="/virtual-classroom/:id" element={user ? <VirtualClassroom /> : <Navigate to="/auth" />} />
         </Routes>
       </Layout>
     </Router>
